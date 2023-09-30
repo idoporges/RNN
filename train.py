@@ -4,7 +4,6 @@ import time
 import math
 import argparse
 from dataclasses import dataclass
-from typing import List
 
 import torch
 import torch.nn as nn
