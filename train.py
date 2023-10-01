@@ -180,11 +180,12 @@ class CharDataset(Dataset):
         return x, y
 
 
-def create_datasets(input_file):
-
+def create_datasets(input_dir):
     # preprocessing of the input text file
+    ## TODO input files are all files in ./input_dir instead of input_file
     with open(input_file, 'r') as f:
         data = f.read()
+    ## TODO pre preocess input to be 1 token per line
     words = data.splitlines()
     words = [w.strip() for w in words] # get rid of any leading or trailing white space
     words = [w for w in words if w] # get rid of any empty strings
@@ -196,6 +197,7 @@ def create_datasets(input_file):
     print("vocabulary:")
     print(''.join(chars))
 
+    ## TODO change method, train files in ./input_dir/ and test files in ./tests/input_dir/
     # partition the input data into a training and the test set
     test_set_size = min(1000, int(len(words) * 0.1)) # 10% of the training set, or up to 1000 examples
     rp = torch.randperm(len(words)).tolist()
@@ -252,6 +254,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Make More")
     # system/input/output
     parser.add_argument('--input-file', '-i', type=str, default='names.txt', help="input file with things one per line")
+    parser.add_argument('--input-dir', '-d', type=str, default='Austen', help="input files with tokens one per line")
     parser.add_argument('--work-dir', '-o', type=str, default='out', help="output working directory")
     parser.add_argument('--resume', action='store_true', help="when this flag is used, we will resume optimization from existing model in the workdir")
     parser.add_argument('--sample-only', action='store_true', help="just sample from the model and quit, don't train")
@@ -281,7 +284,7 @@ if __name__ == '__main__':
     writer = SummaryWriter(log_dir=args.work_dir)
 
     # init datasets
-    train_dataset, test_dataset = create_datasets(args.input_file)
+    train_dataset, test_dataset = create_datasets(args.input_dir)
     vocab_size = train_dataset.get_vocab_size()
     block_size = train_dataset.get_output_length()
     print(f"dataset determined that: {vocab_size=}, {block_size=}")
