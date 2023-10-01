@@ -181,9 +181,10 @@ class CharDataset(Dataset):
 
 
 def create_datasets(input_dir):
+    input_file = input_dir
     # preprocessing of the input text file
-    ## TODO input files are all files in ./input_dir instead of input_file
-    with open(input_file, 'r') as f:
+    ## TODO input files are all files in ./input_dir
+    with open(input_file, 'r', encoding='utf-8') as f:
         data = f.read()
     ## TODO pre preocess input to be 1 token per line
     words = data.splitlines()
@@ -208,7 +209,7 @@ def create_datasets(input_dir):
     # wrap in dataset objects
     train_dataset = CharDataset(train_words, chars, max_word_length)
     test_dataset = CharDataset(test_words, chars, max_word_length)
-
+    print(train_dataset)
     return train_dataset, test_dataset
 
 
@@ -248,7 +249,17 @@ def evaluate(model, dataset, batch_size=50, max_batches=None):
     model.train() # reset model back to training mode
     return mean_loss
 
+
+def SLEEP():
+    time.sleep(99999)
+
+
 if __name__ == '__main__':
+    if torch.cuda.is_available():
+        # Get the name of the GPU
+        print(f"Using GPU: {torch.cuda.get_device_name(0)}")
+    else:
+        print("Using CPU")
 
     # parse command line args
     parser = argparse.ArgumentParser(description="Make More")
@@ -265,7 +276,7 @@ if __name__ == '__main__':
     # sampling
     parser.add_argument('--top-k', type=int, default=-1, help="top-k for sampling, -1 means no top-k")
     # model
-    parser.add_argument('--type', type=str, default='transformer', help="model class type to use, bigram|mlp|rnn|gru|bow|transformer")
+    parser.add_argument('--type', type=str, default='rnn', help="model class type to use, bigram|mlp|rnn|gru|bow|transformer")
     parser.add_argument('--n-layer', type=int, default=4, help="number of layers")
     parser.add_argument('--n-head', type=int, default=4, help="number of heads (in a transformer)")
     parser.add_argument('--n-embd', type=int, default=64, help="number of feature channels in the model")
@@ -284,7 +295,8 @@ if __name__ == '__main__':
     writer = SummaryWriter(log_dir=args.work_dir)
 
     # init datasets
-    train_dataset, test_dataset = create_datasets(args.input_dir)
+    train_dataset, test_dataset = create_datasets(args.input_file)
+    #SLEEP()
     vocab_size = train_dataset.get_vocab_size()
     block_size = train_dataset.get_output_length()
     print(f"dataset determined that: {vocab_size=}, {block_size=}")
