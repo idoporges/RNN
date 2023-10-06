@@ -141,12 +141,11 @@ def print_samples(num=10):
 
 
 class CharDataset(Dataset):
-
     def __init__(self, words, chars, max_word_length):
         self.words = words
         self.chars = chars
         self.max_word_length = max_word_length
-        self.stoi = {ch:i+1 for i,ch in enumerate(chars)}
+        self.stoi = {ch:i+1 for i,ch in enumerate(chars)} # maps chars to numbers
         self.itos = {i:s for s,i in self.stoi.items()} # inverse mapping
 
     def __len__(self):
@@ -171,6 +170,7 @@ class CharDataset(Dataset):
 
     def __getitem__(self, idx):
         word = self.words[idx]
+        #print(word)
         ix = self.encode(word)
         x = torch.zeros(self.max_word_length + 1, dtype=torch.long)
         y = torch.zeros(self.max_word_length + 1, dtype=torch.long)
@@ -180,36 +180,74 @@ class CharDataset(Dataset):
         return x, y
 
 
-def create_datasets(input_dir):
-    input_file = input_dir
+class WordsDataset(Dataset):
+    def __init__(self, words, chars, max_word_length):
+        self.words = words
+        self.chars = chars
+        self.max_word_length = max_word_length
+        self.stoi = {w:i+1 for i,w in enumerate(words)} # maps chars to numbers
+        self.itos = {i:s for s,i in self.stoi.items()} # inverse mapping
+
+    def __len__(self):
+        return len(self.words)
+
+    def contains(self, word):
+        return word in self.words
+
+    def get_vocab_size(self):
+        return len(self.words) + 1 # all the possible characters and special 0 token
+
+    def get_output_length(self):
+        return 1 # <START> token followed by words
+
+    def encode(self, word):
+        ix = torch.tensor([self.stoi[w] for w in word], dtype=torch.long)
+        return ix
+
+    def decode(self, ix):
+        word = ''.join(self.itos[i] for i in ix)
+        return word
+
+    def __getitem__(self, idx):
+        word = self.words[idx]
+        ix = self.encode(word)
+        x = torch.zeros(self.max_word_length + 1, dtype=torch.long)
+        y = torch.zeros(self.max_word_length + 1, dtype=torch.long)
+        x[1:1+len(ix)] = ix
+        y[:len(ix)] = ix
+        y[len(ix)+1:] = -1 # index -1 will mask the loss at the inactive locations
+        return x, y
+
+
+def create_datasets(input_file):
     # preprocessing of the input text file
-    ## TODO input files are all files in ./input_dir
     with open(input_file, 'r', encoding='utf-8') as f:
         data = f.read()
-    ## TODO pre preocess input to be 1 token per line
+    print(data)
     words = data.splitlines()
+
     words = [w.strip() for w in words] # get rid of any leading or trailing white space
     words = [w for w in words if w] # get rid of any empty strings
+    unique_words = set(words)
     chars = sorted(list(set(''.join(words)))) # all the possible characters
     max_word_length = max(len(w) for w in words)
     print(f"number of examples in the dataset: {len(words)}")
     print(f"max word length: {max_word_length}")
     print(f"number of unique characters in the vocabulary: {len(chars)}")
     print("vocabulary:")
-    print(''.join(chars))
-
-    ## TODO change method, train files in ./input_dir/ and test files in ./tests/input_dir/
+    print(unique_words)
     # partition the input data into a training and the test set
-    test_set_size = min(1000, int(len(words) * 0.1)) # 10% of the training set, or up to 1000 examples
-    rp = torch.randperm(len(words)).tolist()
-    train_words = [words[i] for i in rp[:-test_set_size]]
-    test_words = [words[i] for i in rp[-test_set_size:]]
+    #test_set_size = min(1000, int(len(words) * 0.1)) # 10% of the training set, or up to 1000 examples
+    #rp = torch.randperm(len(words)).tolist()
+    train_words = words
+    test_words = words
     print(f"split up the dataset into {len(train_words)} training examples and {len(test_words)} test examples")
 
     # wrap in dataset objects
     train_dataset = CharDataset(train_words, chars, max_word_length)
     test_dataset = CharDataset(test_words, chars, max_word_length)
     print(train_dataset)
+    #SLEEP()
     return train_dataset, test_dataset
 
 
@@ -218,13 +256,13 @@ class InfiniteDataLoader:
     this is really hacky and I'm not proud of it, but there doesn't seem to be
     a better way in PyTorch to just create an infinite dataloader?
     """
-
     def __init__(self, dataset, **kwargs):
         train_sampler = torch.utils.data.RandomSampler(dataset, replacement=True, num_samples=int(1e10))
         self.train_loader = DataLoader(dataset, sampler=train_sampler, **kwargs)
         self.data_iter = iter(self.train_loader)
 
     def next(self):
+        #SLEEP()
         try:
             batch = next(self.data_iter)
         except StopIteration: # this will technically only happen after 1e10 samples... (i.e. basically never)
@@ -251,6 +289,7 @@ def evaluate(model, dataset, batch_size=50, max_batches=None):
 
 
 def SLEEP():
+    print("going to sleep")
     time.sleep(99999)
 
 
@@ -310,6 +349,7 @@ if __name__ == '__main__':
     else:
         raise ValueError(f'model type {args.type} is not recognized')
     model.to(args.device)
+
     print(f"model #params: {sum(p.numel() for p in model.parameters())}")
     if args.resume or args.sample_only: # note: if we sample-only then we also assume we are resuming
         print("resuming from existing model in the workdir")
@@ -317,22 +357,21 @@ if __name__ == '__main__':
     if args.sample_only:
         print_samples(num=50)
         sys.exit()
-
     # init optimizer
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay, betas=(0.9, 0.99), eps=1e-8)
-
+    #SLEEP()
     # init dataloader
-    batch_loader = InfiniteDataLoader(train_dataset, batch_size=args.batch_size, pin_memory=True, num_workers=args.num_workers)
-
+    #batch_loader = InfiniteDataLoader(train_dataset, batch_size=args.batch_size, pin_memory=True, num_workers=args.num_workers)
+    batch_loader = InfiniteDataLoader(train_dataset, batch_size=args.batch_size, pin_memory=True, num_workers=1)
+    #SLEEP()
     # training loop
     best_loss = None
     step = 0
     while True:
-
         t0 = time.time()
-
         # get the next batch, ship to device, and unpack it to input and target
         batch = batch_loader.next()
+        SLEEP()
         batch = [t.to(args.device) for t in batch]
         X, Y = batch
 
